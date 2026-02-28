@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>割り勘・傾斜計算 Moneyger</title>
+<style>
+  :root {
+    --primary: #5D80FF;
+    --danger: #DD4200;
+    --bg: #f3f4f6;
+    --card-bg: #ffffff;
+    --border: #e5e7eb;
+    --text: #3c3c3c;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", NotoSansJP, sans-serif;
+    background-color: var(--bg);
+    color: var(--text);
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 15px;
+    line-height: 1.5;
+  }
+  h1 { font-size: 1.5rem; text-align: center; margin-bottom: 20px;}
+  .card {
+    background: var(--card-bg);
+    border-radius: 24px;
+    padding: 24px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+  .card-title-wrap {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid var(--bg);
+    padding-bottom: 5px;
+    margin-bottom: 15px;
+  }
+  .card-title {
+    font-size: 1.2rem;
+    font-weight: bold;
+    margin: 0;
+  }
+  .btn-delete-round {
+    background: transparent;
+    color: var(--danger);
+    border: 1px solid var(--danger);
+    padding: 4px 8px;
+    font-size: 0.8rem;
+    border-radius: 32px;
+    cursor: pointer;
+  }
+  .form-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+    gap: 10px;
+  }
+  .form-row label { flex: 0 0 80px; font-weight: bold; font-size: 0.9rem; }
+  .form-row input[type="text"], .form-row select {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 16px;
+  }
+  
+  /* 金額入力用の専用スタイル */
+  .currency-input-wrap {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: #fff;
+    overflow: hidden;
+  }
+  .currency-symbol {
+    padding-left: 12px;
+    color: #6b7280;
+    font-weight: medium;
+    user-select: none;
+  }
+  .currency-input-wrap input {
+    flex: 1;
+    border: none !important;
+    padding: 8px;
+    font-size: 16px;
+    outline: none;
+    background: transparent;
+  }
+
+  .tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .tag {
+    background: var(--bg); border: 1px solid var(--border);
+    padding: 4px 8px 4px 12px; border-radius: 16px; font-size: 0.9rem;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .tag-delete {
+    background: #d1d5db; color: white; border: none; border-radius: 50%;
+    width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center;
+    font-size: 0.7rem; cursor: pointer; padding: 0;
+  }
+  .attendee-list { margin-top: 15px; border-top: 1px solid var(--border); padding-top: 10px; }
+  .attendee-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 0; border-bottom: 1px solid var(--bg);
+  }
+  .attendee-name { flex: 1; display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 0.95rem;}
+  .weight-select { padding: 4px; border-radius: 4px; border: 1px solid var(--border); font-size: 0.9rem;}
+  button {
+    cursor: pointer; padding: 10px; border: none; border-radius: 12px;
+    font-size: 1rem; font-weight: bold; transition: opacity 0.2s;
+  }
+  button:active { opacity: 0.7; }
+  .btn-add { background: var(--bg); border: 1px dashed #9ca3af; width: 100%; color: #4b5563; }
+  .btn-primary { background: var(--primary); color: white; width: 100%; margin-top: 10px; padding: 15px;}
+  textarea {
+    width: 100%; height: 250px; margin-top: 15px; padding: 10px;
+    border: 1px solid var(--border); border-radius: 4px; box-sizing: border-box; font-size: 0.9rem;
+  }
+</style>
+</head>
+<body>
+
+<img
+  class="logo"
+  src="moneyger_logo.svg"
+  width="30%"
+  height="30%"
+/>
+
+  <div class="card">
+    <div class="card-title-wrap">
+      <div class="card-title">メンバー</div>
+    </div>
+    
+    <div class="form-row">
+      <input type="text" id="new-name" placeholder="名前" onkeydown="handleNameKeydown(event)">
+      <button type="button" onclick="addParticipant()" style="background:#4b5563; color:white;">追加</button>
+    </div>
+    <div id="participant-tags" class="tags"></div>
+  </div>
+
+  <div id="rounds-container"></div>
+  <button type="button" class="btn-add" onclick="addRound()">＋ 追加</button>
+
+  <div class="card" style="margin-top: 20px;">
+    <div class="card-title-wrap">
+      <div class="card-title">計算</div>
+    </div>
+    <div class="form-row">
+      <label>端数処理</label>
+      <select id="rounding-unit">
+        <option value="1">1円単位</option>
+        <option value="10">10円単位</option>
+        <option value="100" selected>100円単位</option>
+        <option value="500">500円単位</option>
+      </select>
+    </div>
+    <button type="button" class="btn-primary" onclick="calculate()">計算</button>
+    <textarea id="result-text" readonly placeholder="ここに共有用のテキストが表示されます"></textarea>
+    <button type="button" onclick="copyToClipboard()" style="background:#F5AE17; color:white; width:100%; margin-top:10px;">テキストをコピー</button>
+  </div>
+
+<script>
+  let participants = [];
+  let rounds = [
+    {
+      id: 1,
+      title: '', 
+      amount: null,
+      payerId: null,
+      attendees: {}
+    }
+  ];
+  let nextParticipantId = 1;
+  let nextRoundId = 2;
+
+  function renderAll() {
+    const tagsContainer = document.getElementById('participant-tags');
+    tagsContainer.innerHTML = participants.map(function(p) {
+      return `<span class="tag">
+                ${p.name}
+                <button class="tag-delete" onclick="removeParticipant(${p.id})" title="削除">×</button>
+              </span>`;
+    }).join('');
+
+    const roundsContainer = document.getElementById('rounds-container');
+    let roundsHtml = '';
+    
+    rounds.forEach(function(r, index) {
+      let payerOptions = '<option value="">選択...</option>';
+      participants.forEach(function(p) {
+        let selected = (p.id === r.payerId) ? 'selected' : '';
+        payerOptions += '<option value="' + p.id + '" ' + selected + '>' + p.name + '</option>';
+      });
+
+      let attendeesHtml = '';
+      if (participants.length === 0) {
+        attendeesHtml = '<div style="font-size:1rem; color:#9ca3af;">メンバーを追加してください</div>';
+      } else {
+        participants.forEach(function(p) {
+          let isAttending = false;
+          let weight = 1.0;
+          if (r.attendees && r.attendees[p.id]) {
+            isAttending = r.attendees[p.id].isAttending !== false;
+            weight = r.attendees[p.id].weight !== undefined ? r.attendees[p.id].weight : 1.0;
+          }
+
+          let checked = isAttending ? 'checked' : '';
+          let disabled = !isAttending ? 'disabled' : '';
+
+          attendeesHtml += `
+            <div class="attendee-row">
+              <label class="attendee-name">
+                <input type="checkbox" ${checked} 
+                  onchange="updateAttendee(${r.id}, ${p.id}, 'isAttending', this.checked)">
+                ${p.name}
+              </label>
+              <select class="weight-select" ${disabled} 
+                onchange="updateAttendee(${r.id}, ${p.id}, 'weight', parseFloat(this.value))">
+                <option value="2.0" ${weight === 2.0 ? 'selected' : ''}>多め (x2.0)</option>
+                <option value="1.5" ${weight === 1.5 ? 'selected' : ''}>やや多め (x1.5)</option>
+                <option value="1.0" ${weight === 1.0 ? 'selected' : ''}>普通 (x1.0)</option>
+                <option value="0.5" ${weight === 0.5 ? 'selected' : ''}>少なめ (x0.5)</option>
+                <option value="0" ${weight === 0 ? 'selected' : ''}>払わない (x0)</option>
+              </select>
+            </div>
+          `;
+        });
+      }
+
+      let formattedAmount = r.amount ? r.amount.toLocaleString() : '';
+
+      roundsHtml += `
+        <div class="card">
+          
+          <div class="card-title-wrap">
+            <div class="card-title">${index + 1}軒目</div>
+            <button class="btn-delete-round" onclick="removeRound(${r.id})"> 削除 </button>
+          </div>
+          <div class="form-row">
+            <label>店名</label>
+            <input type="text" value="${r.title || ''}" placeholder="居酒屋〇〇" onchange="updateRound(${r.id}, 'title', this.value)">
+          </div>
+          <div class="form-row">
+            <label>支払金額</label>
+            <div class="currency-input-wrap">
+              <span class="currency-symbol">¥</span>
+              <input type="text" inputmode="numeric" value="${formattedAmount}" placeholder="0" oninput="formatAndSaveAmount(this, ${r.id})">
+            </div>
+          </div>
+          <div class="form-row">
+            <label>立て替え</label>
+            <select onchange="updateRound(${r.id}, 'payerId', parseInt(this.value))">
+              ${payerOptions}
+            </select>
+          </div>
+          <div class="attendee-list">
+            <div style="font-size: 0.85rem; color: #6b7280; margin-bottom: 5px;">参加チェック・傾斜</div>
+            ${attendeesHtml}
+          </div>
+        </div>
+      `;
+    });
+    roundsContainer.innerHTML = roundsHtml;
+  }
+
+  function handleNameKeydown(event) {
+    if (event.isComposing || event.keyCode === 229) {
+      return;
+    }
+    if (event.key === 'Enter') {
+      event.preventDefault(); 
+      addParticipant();
+    }
+  }
+
+  function formatAndSaveAmount(inputElem, roundId) {
+    let rawValue = inputElem.value.replace(/[^0-9]/g, '');
+    let num = 0;
+    if (rawValue !== '') {
+      num = parseInt(rawValue, 10);
+      inputElem.value = num.toLocaleString(); 
+    } else {
+      inputElem.value = '';
+    }
+    const round = rounds.find(function(r) { return r.id === roundId; });
+    if (round) {
+      round.amount = num;
+    }
+  }
+
+  function removeParticipant(pId) {
+    participants = participants.filter(function(p) { return p.id !== pId; });
+    rounds.forEach(function(r) {
+      if (r.attendees && r.attendees[pId]) {
+        delete r.attendees[pId];
+      }
+      if (r.payerId === pId) {
+        r.payerId = participants.length > 0 ? participants[0].id : null;
+      }
+    });
+    renderAll();
+  }
+
+  function removeRound(roundId) {
+    if(!confirm("お店を削除しますか？")) return;
+    rounds = rounds.filter(function(r) { return r.id !== roundId; });
+    renderAll();
+  }
+
+  function addParticipant() {
+    const input = document.getElementById('new-name');
+    const name = input.value.trim().replace(/['"]/g, '');
+    if (!name) return;
+
+    const newId = nextParticipantId++;
+    participants.push({ id: newId, name: name });
+    
+    rounds.forEach(function(r) {
+      if (!r.attendees) r.attendees = {};
+      r.attendees[newId] = { isAttending: true, weight: 1.0 };
+      
+      if (r.payerId === null && participants.length === 1) {
+        r.payerId = newId;
+      }
+    });
+
+    input.value = ''; 
+    renderAll();      
+    input.focus();    
+  }
+
+  function addRound() {
+    const newRound = {
+      id: nextRoundId++,
+      title: '',
+      amount: null,
+      payerId: participants.length > 0 ? participants[0].id : null,
+      attendees: {}
+    };
+    participants.forEach(function(p) {
+      newRound.attendees[p.id] = { isAttending: true, weight: 1.0 };
+    });
+    rounds.push(newRound);
+    renderAll();
+  }
+
+  function updateRound(roundId, key, value) {
+    const round = rounds.find(function(r) { return r.id === roundId; });
+    if (round) round[key] = value;
+    renderAll();
+  }
+
+  function updateAttendee(roundId, pId, key, value) {
+    const round = rounds.find(function(r) { return r.id === roundId; });
+    if (round && round.attendees && round.attendees[pId]) {
+      round.attendees[pId][key] = value;
+    }
+    renderAll();
+  }
+
+  function calculate() {
+    if (participants.length === 0 || rounds.length === 0) {
+      alert("メンバーと支払い情報を入力してください。");
+      return;
+    }
+
+    const unit = parseInt(document.getElementById('rounding-unit').value);
+    let balances = {}; 
+    participants.forEach(function(p) { balances[p.id] = 0; });
+    let detailsText = "";
+
+    // 【追加】全ラウンドを通して、立て替えた人が完全に1人だけか判定
+    let payerSet = new Set();
+
+    rounds.forEach(function(r, index) {
+      if (!r.payerId || !r.amount) return;
+
+      payerSet.add(r.payerId); // 立て替えた人を記録
+
+      let payerObj = participants.find(function(p) { return p.id === r.payerId; });
+      const payerName = payerObj ? payerObj.name : "不明";
+      const title = r.title || (index + 1) + "軒目";
+      detailsText += "\n【" + title + "】 計" + r.amount.toLocaleString() + "円 (立替: " + payerName + ")\n";
+
+      let totalWeight = 0;
+      let attendingIds = [];
+      for (const pId in r.attendees) {
+        if (r.attendees[pId].isAttending) {
+          totalWeight += r.attendees[pId].weight;
+          attendingIds.push(parseInt(pId));
+        }
+      }
+
+      if (totalWeight === 0) return;
+
+      let roundCollected = 0;
+      attendingIds.forEach(function(pId) {
+        const weight = r.attendees[pId].weight;
+        const exact = (weight / totalWeight) * r.amount;
+        const rounded = Math.round(exact / unit) * unit;
+        
+        balances[pId] -= rounded; 
+        roundCollected += rounded;
+        
+        let pObj = participants.find(function(p) { return p.id === pId; });
+        const pName = pObj ? pObj.name : "不明";
+        detailsText += "・" + pName + ": " + rounded.toLocaleString() + "円\n";
+      });
+
+      balances[r.payerId] += roundCollected;
+    });
+
+    // payerSet（立て替え者リスト）の種類が1つだけなら、同一人物のみと判定
+    let isSinglePayer = payerSet.size === 1;
+
+    let debtors = [];   
+    let creditors = []; 
+
+    participants.forEach(function(p) {
+      if (balances[p.id] < 0) {
+        debtors.push({ name: p.name, amount: Math.abs(balances[p.id]) });
+      } else if (balances[p.id] > 0) {
+        creditors.push({ name: p.name, amount: balances[p.id] });
+      }
+    });
+
+    let transactions = [];
+    let i = 0;
+    let j = 0;
+
+    while (i < debtors.length && j < creditors.length) {
+      let debtor = debtors[i];
+      let creditor = creditors[j];
+      
+      let settleAmount = Math.min(debtor.amount, creditor.amount);
+      
+      if (settleAmount > 0) {
+        // 【追加】立て替えが1人だけなら文言をシンプルにする
+        if (isSinglePayer) {
+          transactions.push("・" + debtor.name + ": " + settleAmount.toLocaleString() + "円");
+        } else {
+          transactions.push("・" + debtor.name + " ➔ " + creditor.name + " へ: " + settleAmount.toLocaleString() + "円");
+        }
+      }
+      
+      debtor.amount -= settleAmount;
+      creditor.amount -= settleAmount;
+      
+      if (debtor.amount === 0) i++;
+      if (creditor.amount === 0) j++;
+    }
+
+    let text = "お疲れ様です！本日の精算をお願いします。\n\n";
+    text += "■ 送金額\n";
+    
+    if (transactions.length > 0) {
+      transactions.forEach(function(tr) {
+        text += tr + "\n";
+      });
+      text += "\n\n【送金先】\nd払い,PayPay：（電話番号など）\n" ;
+    } else {
+      text += "追加の送金はありません。\n";
+    }
+
+    text += "\n\n-------\n■ 内訳詳細（確認用）";
+    text += detailsText;
+
+    document.getElementById('result-text').value = text;
+  }
+
+  function copyToClipboard() {
+    const textarea = document.getElementById('result-text');
+    if(!textarea.value) return;
+    textarea.select();
+    document.execCommand('copy');
+    alert("コピーしました！");
+  }
+
+  renderAll();
+</script>
+</body>
+</html>
