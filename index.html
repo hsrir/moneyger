@@ -386,7 +386,7 @@
       let payerObj = participants.find(function(p) { return p.id === r.payerId; });
       const payerName = payerObj ? payerObj.name : "不明";
       const title = r.title || (index + 1) + "軒目";
-      detailsText += "\n【" + title + "】 計" + r.amount.toLocaleString() + "円 (立替: " + payerName + ")\n";
+      detailsText += "\n【" + title + "】 計" + r.amount.toLocaleString() + "円 (立替： " + payerName + ")\n";
 
       let totalWeight = 0;
       let attendingIds = [];
@@ -410,7 +410,7 @@
         
         let pObj = participants.find(function(p) { return p.id === pId; });
         const pName = pObj ? pObj.name : "不明";
-        detailsText += "・" + pName + ": " + rounded.toLocaleString() + "円\n";
+        detailsText += "・" + pName + "さん： " + rounded.toLocaleString() + "円\n";
       });
 
       balances[r.payerId] += roundCollected;
@@ -443,7 +443,7 @@
       if (settleAmount > 0) {
         // 【追加】立て替えが1人だけなら文言をシンプルにする
         if (isSinglePayer) {
-          transactions.push("・" + debtor.name + ": " + settleAmount.toLocaleString() + "円");
+          transactions.push("・" + debtor.name + "さん： " + settleAmount.toLocaleString() + "円");
         } else {
           transactions.push("・" + debtor.name + " ➔ " + creditor.name + " へ: " + settleAmount.toLocaleString() + "円");
         }
